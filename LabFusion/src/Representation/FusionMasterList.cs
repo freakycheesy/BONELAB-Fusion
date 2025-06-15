@@ -43,7 +43,7 @@ public static class FusionMasterList
 
     public static FusionMasterResult VerifyPlayer(ulong id, string name)
     {
-        if (NetworkLayerManager.Layer is SteamNetworkLayer)
+        if (NetworkLayerManager.Layer is EpicNetworkLayer)
         {
             return VerifyPlayer(_steamPlayers, id, name);
         }
