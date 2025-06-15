@@ -1,6 +1,6 @@
 ## **Fusion**
 #### Hotfix:
-- Fixed issue with server settings breaking with too many players
+- Fixed grabbing and ragdolling issues on quest
 
 ## **Fusion Auto Updater**
 - No changes
