@@ -1,21 +1,16 @@
-﻿using Il2CppTMPro;
-using LabFusion.Menu;
-using LabFusion.Player;
-using LabFusion.Senders;
+﻿using LabFusion.Player;
 using LabFusion.UI.Popups;
 using LabFusion.Utilities;
 using LabFusion.Voice;
 using LabFusion.Voice.Unity;
-using LiteNetLib;
+using Riptide;
 using System.Collections.Concurrent;
 using UnityEngine;
 
 namespace LabFusion.Network;
 
-public class LiteNetLibLayer : NetworkLayer
+public class RiptideNetworkLayer : NetworkLayer
 {
-    public const int port = 7778;
-    public const string localAddress = "127.0.0.1";
     private IVoiceManager voiceManager = null;
     public override IVoiceManager VoiceManager => voiceManager;
 
@@ -24,13 +19,13 @@ public class LiteNetLibLayer : NetworkLayer
 
     internal static readonly ConcurrentQueue<Action> ActionQueue = new ConcurrentQueue<Action>();
 
-    public override string Title => "LiteNetLib";
+    public override string Title => "Riptide";
 
     public override string Platform => "P2P";
 
-    public override bool IsHost => LiteNetLibThreader.IsServerRunning;
+    public override bool IsHost => RiptideThreader.IsServerRunning;
 
-    public override bool IsClient => LiteNetLibThreader.IsClientConnected;
+    public override bool IsClient => RiptideThreader.IsClientConnected;
 
     private string ServerCode
     {
@@ -40,7 +35,7 @@ public class LiteNetLibLayer : NetworkLayer
     public override bool CheckValidation() => true;
 
     // Riptide doesn't really have a way to add these features out of the box...
-    public override string GetUsername(ulong userId) => userId.ToString();
+    public override string GetUsername(ulong userId) => $"Riptide Enjoyer {userId}";
     public override bool IsFriend(ulong userId) => false;
 
     public override void LogIn() => InvokeLoggedInEvent();
@@ -48,7 +43,7 @@ public class LiteNetLibLayer : NetworkLayer
 
     public override void OnInitializeLayer()
     {
-        LiteNetLibThreader.StartThread();
+        RiptideThreader.StartThread();
         HookRiptideEvents();
 
 
@@ -63,7 +58,7 @@ public class LiteNetLibLayer : NetworkLayer
 
         Disconnect();
 
-        LiteNetLibThreader.KillThread();
+        RiptideThreader.KillThread();
 
         UnhookRiptideEvents();
     }
@@ -133,25 +128,25 @@ public class LiteNetLibLayer : NetworkLayer
 
     public override void StartServer()
     {
-        LiteNetLibThreader.StartServer();
+        RiptideThreader.StartServer();
     }
 
     public override void Disconnect(string reason = "")
     {
-        LiteNetLibThreader.Disconnect();
+        RiptideThreader.Disconnect();
     }
 
-    public override string GetServerCode() => ServerCode = localAddress;
+    public override string GetServerCode() => ServerCode;
 
     public override void RefreshServerCode()
     {
-        ServerCode = localAddress;
+        ServerCode = "127.0.0.1";
         GUIUtility.systemCopyBuffer = ServerCode;
 
         Notifier.Send(new Notification()
         {
             SaveToMenu = false,
-            Message = $"For security purposes, Look up your IP Address and Open a port on {port}!",
+            Message = "Saved Code to Clipboard!",
             Type = NotificationType.INFORMATION,
             PopupLength = 3,
         });
@@ -159,28 +154,19 @@ public class LiteNetLibLayer : NetworkLayer
 
     public override void JoinServerByCode(string code)
     {
-        if (code == "1") code = localAddress;
-        LiteNetLibThreader.ConnectToServer(code);
+        RiptideThreader.ConnectToServer(code);
     }
 
-    private static DeliveryMethod GetDeliveryMethod(NetworkChannel channel)
-    {
-        return channel switch
-        {
-            NetworkChannel.Reliable => DeliveryMethod.ReliableOrdered,
-            NetworkChannel.Unreliable => DeliveryMethod.Unreliable,
-            _ => throw new ArgumentOutOfRangeException(nameof(channel), channel, null),
-        };
-    }
+    private static MessageSendMode GetSendMode(NetworkChannel channel) => channel == NetworkChannel.Reliable ? MessageSendMode.Reliable : MessageSendMode.Unreliable;
 
     public override void BroadcastMessage(NetworkChannel channel, NetMessage message)
     {
         byte[] data = message.ToByteArray();
-        DeliveryMethod deliveryMethod = GetDeliveryMethod(channel);
+        MessageSendMode sendMode = GetSendMode(channel);
 
-        var messageTuple = new Tuple<byte[], DeliveryMethod, int, bool>(data, deliveryMethod, 0, true);
+        var messageTuple = new Tuple<byte[], MessageSendMode, ushort, bool>(data, sendMode, 0, true);
 
-        LiteNetLibThreader.ServerSendQueue.Enqueue(messageTuple);
+        RiptideThreader.ServerSendQueue.Enqueue(messageTuple);
     }
 
     public override void SendFromServer(byte userId, NetworkChannel channel, NetMessage message)
@@ -196,19 +182,19 @@ public class LiteNetLibLayer : NetworkLayer
     public override void SendFromServer(ulong userId, NetworkChannel channel, NetMessage message)
     {
         byte[] data = message.ToByteArray();
-        DeliveryMethod deliveryMethod = GetDeliveryMethod(channel);
+        MessageSendMode sendMode = GetSendMode(channel);
 
-        var messageTuple = new Tuple<byte[], DeliveryMethod, int, bool>(data, deliveryMethod, (int)userId, false);
+        var messageTuple = new Tuple<byte[], MessageSendMode, ushort, bool>(data, sendMode, (ushort)userId, false);
 
-        LiteNetLibThreader.ServerSendQueue.Enqueue(messageTuple);
+        RiptideThreader.ServerSendQueue.Enqueue(messageTuple);
     }
 
     public override void SendToServer(NetworkChannel channel, NetMessage message)
     {
         byte[] data = message.ToByteArray();
-        DeliveryMethod deliveryMethod = GetDeliveryMethod(channel);
+        MessageSendMode sendMode = GetSendMode(channel);
 
-        var messageTuple = new Tuple<byte[], DeliveryMethod>(data, deliveryMethod);
+        var messageTuple = new Tuple<byte[], MessageSendMode>(data, sendMode);
         if (IsHost)
             NativeMessageHandler.ReadMessage(new()
             {
@@ -216,11 +202,11 @@ public class LiteNetLibLayer : NetworkLayer
                 IsServerHandled = true,
             });
         else
-            LiteNetLibThreader.ClientSendQueue.Enqueue(messageTuple);
+            RiptideThreader.ClientSendQueue.Enqueue(messageTuple);
     }
 
     public override void DisconnectUser(ulong platformID)
     {
-        LiteNetLibThreader.KickPlayer(platformID);
+        RiptideThreader.KickPlayer(platformID);
     }
 }
