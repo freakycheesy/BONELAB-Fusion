@@ -3,6 +3,7 @@ using Il2CppSLZ.ModIO.WebSockets;
 using LabFusion.Player;
 using LabFusion.Senders;
 using LabFusion.UI.Popups;
+using LabFusion.Utilities;
 using LiteNetLib;
 using LiteNetLib.Utils;
 using MelonLoader;
@@ -115,9 +116,6 @@ internal static class LiteNetLibThreader
 
     private static void InitializeLNL()
     {
-#if DEBUG
-            RiptideLogger.Initialize(MelonLogger.Msg, true);
-#endif
         _clientListener = new();
         _serverListener = new();
         _client = new(_clientListener)
@@ -149,10 +147,12 @@ internal static class LiteNetLibThreader
 
     private static void OnClientConnected(NetPeer peer)
     {
+        FusionLogger.Log($"Peer Connected {peer.Id}");
     }
 
     private static void OnClientDisconnected(NetPeer peer, DisconnectInfo info)
     {
+        FusionLogger.Log($"Peer Disconnected {peer.Id} {info}");
         ulong ID = (ulong)peer.Id;
 
         LiteNetLibLayer.ActionQueue.Enqueue(new Action(() =>
